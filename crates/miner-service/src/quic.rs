@@ -43,7 +43,7 @@ pub async fn connect_and_mine(
         if gaya::log_normal() {
             log::info!("⛏️ Connecting to node at {}...", node_addr);
         } else {
-            log::info!("🌾 Bapak berangkat ke sawah {}...", node_addr);
+            log::info!("🌾 Bapak berangkat ke ladang {}...", node_addr);
         }
 
         match establish_connection(node_addr, auth_token, tls_cert_sha256).await {
@@ -51,7 +51,7 @@ pub async fn connect_and_mine(
                 if gaya::log_normal() {
                     log::info!("⛏️ Connected to node at {}", node_addr);
                 } else {
-                    log::info!("🌾 Bapak sampai di sawah {}", node_addr);
+                    log::info!("🌾 Bapak sampai di ladang {}", node_addr);
                 }
 
                 let mut authenticated = false;
@@ -70,7 +70,7 @@ pub async fn connect_and_mine(
                     if gaya::log_normal() {
                         log::info!("⛏️ Connection lost: {}", e);
                     } else {
-                        log::info!("⚠️ Jalan ke sawah putus: {}", e);
+                        log::info!("⚠️ Jalan ke ladang putus: {}", e);
                     }
                 }
                 // Only clear backoff after the node accepted auth (first NewJob).
@@ -90,7 +90,7 @@ pub async fn connect_and_mine(
                 if gaya::log_normal() {
                     log::warn!("⛏️ Failed to connect to node: {}", e);
                 } else {
-                    log::warn!("⚠️ Bapak gagal sampai ke sawah: {}", e);
+                    log::warn!("⚠️ Bapak gagal sampai ke ladang: {}", e);
                 }
             }
         }
@@ -174,7 +174,7 @@ async fn handle_connection(
     if gaya::log_normal() {
         log::info!("⛏️ Waiting for mining jobs from node...");
     } else {
-        log::info!("⏳ Bapak nunggu job dari sawah...");
+        log::info!("⏳ Bapak nunggu job dari ladang...");
     }
 
     loop {
@@ -230,7 +230,7 @@ async fn handle_connection(
                             );
                         } else {
                             log::info!(
-                                "💰 Bapak nemu emas di job {job_id}! {total_hashes} cangkulan dalam {elapsed:.2}s, kekuatan cangkul {}. Emas dikirim ke sawah",
+                                "💰 Bapak nemu emas di job {job_id}! {total_hashes} cangkulan dalam {elapsed:.2}s, kekuatan cangkul {}. Emas dikirim ke ladang",
                                 format_hashrate(total_hashes as f64 / elapsed.max(0.001))
                             );
                         }

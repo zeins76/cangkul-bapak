@@ -1,6 +1,6 @@
 //! Gaya pesan log untuk `bapak`.
 //!
-//! Default-nya pesan bergaya "bapak tani" (GPU = cangkul, pool = sawah,
+//! Default-nya pesan bergaya "bapak tani" (GPU = cangkul, pool = ladang,
 //! share = emas). Flag `--log-normal` mengembalikan pesan teknis asli dari
 //! quantus-miner, berguna saat mencari solusi error di dokumentasi upstream.
 

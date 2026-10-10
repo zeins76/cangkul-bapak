@@ -22,17 +22,17 @@ enum Command {
         #[arg(long, env = "BAPAK_COIN", default_value = "quantus", value_parser = ["quantus"])]
         coin: String,
 
-        /// Alamat sawah (pool) atau node, contoh 103.10.20.30:9833.
-        /// Bisa ditulis --sawah, --pool, atau --node-addr.
+        /// Alamat ladang (pool) atau node, contoh 103.10.20.30:9833.
+        /// Bisa ditulis --ladang, --pool, atau --node-addr.
         #[arg(
             long,
-            visible_aliases = ["sawah", "pool"],
+            visible_aliases = ["ladang", "pool"],
             env = "MINER_NODE_ADDR",
             default_value = "127.0.0.1:9833"
         )]
         node_addr: std::net::SocketAddr,
 
-        /// Alamat wallet QTC kamu, dipakai sebagai identitas di sawah (pool).
+        /// Alamat wallet QTC kamu, dipakai sebagai identitas di ladang (pool).
         /// Tidak bisa dipakai bersama --auth-token / --auth-token-file.
         #[arg(
             long,
@@ -164,7 +164,7 @@ enum Command {
 
 /// bapak: miner Quantus turunan quantus-miner (Apache-2.0).
 ///
-/// Contoh: bapak --coin quantus --sawah 103.10.20.30:9833 --wallet <ALAMAT_QTC> --tls-cert-sha256 <SIDIK_JARI>
+/// Contoh: bapak --coin quantus --ladang 103.10.20.30:9833 --wallet <ALAMAT_QTC> --tls-cert-sha256 <SIDIK_JARI>
 #[derive(Parser, Debug)]
 #[command(name = "bapak", author, version, about, long_about = None)]
 struct Args {
@@ -174,7 +174,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() {
-    // `bapak --coin quantus --sawah ...` tanpa subcommand berarti `bapak serve ...`.
+    // `bapak --coin quantus --ladang ...` tanpa subcommand berarti `bapak serve ...`.
     let mut argv: Vec<String> = std::env::args().collect();
     if argv.len() > 1
         && argv[1].starts_with('-')
@@ -187,7 +187,7 @@ async fn main() {
     let Some(command) = args.command else {
         eprintln!("Error: perintah belum lengkap.");
         eprintln!(
-            "Contoh: bapak --coin quantus --sawah 103.10.20.30:9833 \
+            "Contoh: bapak --coin quantus --ladang 103.10.20.30:9833 \
              --wallet <ALAMAT_QTC> --tls-cert-sha256 <SIDIK_JARI_TLS>"
         );
         eprintln!("Uji kekuatan cangkul: bapak benchmark --gpu-devices 1 --cpu-workers 0");
@@ -246,7 +246,7 @@ async fn main() {
             if miner_service::gaya::log_normal() {
                 log::info!("Starting external miner service...");
             } else {
-                log::info!("🧑‍🌾 Bapak bangun, siap-siap ke sawah...");
+                log::info!("🧑‍🌾 Bapak bangun, siap-siap ke ladang...");
             }
 
             // Start metrics HTTP server
@@ -322,7 +322,7 @@ fn resolve_auth_token(
         auth_token_file,
         "--auth-token",
         "--auth-token-file",
-        "isi --wallet <ALAMAT_QTC> untuk menambang di sawah (pool), atau \
+        "isi --wallet <ALAMAT_QTC> untuk menambang di ladang (pool), atau \
          --auth-token-file <PATH> ke file miner-auth-token node untuk solo",
     )
 }

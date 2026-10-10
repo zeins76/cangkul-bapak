@@ -7,8 +7,8 @@ dirilis dengan lisensi yang sama, Apache-2.0 (lihat `LICENSE`).
 ## Cara pakai
 
 ```bash
-# Menambang di sawah (pool)
-./bapak --coin quantus --sawah 103.10.20.30:9833 --wallet <ALAMAT_QTC> --tls-cert-sha256 <SIDIK_JARI_TLS>
+# Menambang di ladang (pool)
+./bapak --coin quantus --ladang 103.10.20.30:9833 --wallet <ALAMAT_QTC> --tls-cert-sha256 <SIDIK_JARI_TLS>
 
 # Uji kekuatan cangkul (benchmark), GPU saja
 ./bapak benchmark --gpu-devices 1 --cpu-workers 0 --duration 30
@@ -17,17 +17,17 @@ dirilis dengan lisensi yang sama, Apache-2.0 (lihat `LICENSE`).
 ./bapak benchmark --cuda-gpu --gpu-devices 1 --cpu-workers 0 --duration 30
 ```
 
-`--sawah` sama dengan `--pool` dan `--node-addr`. Tambahkan `--log-normal` untuk
+`--ladang` sama dengan `--pool` dan `--node-addr`. Tambahkan `--log-normal` untuk
 melihat pesan log teknis asli.
 
 ## Perubahan dari quantus-miner
 
 - Nama binary `quantus-miner` diganti menjadi `bapak`.
-- Subcommand `serve` boleh dilewati: `bapak --sawah ...` sama dengan `bapak serve --sawah ...`.
-- Flag baru: `--coin` (saat ini hanya `quantus`), `--sawah`/`--pool` (alias `--node-addr`),
+- Subcommand `serve` boleh dilewati: `bapak --ladang ...` sama dengan `bapak serve --ladang ...`.
+- Flag baru: `--coin` (saat ini hanya `quantus`), `--ladang`/`--pool` (alias `--node-addr`),
   `--wallet` (dikirim sebagai token identitas ke pool), dan `--log-normal`.
 - Pesan log dan benchmark bergaya "bapak tani" (GPU = cangkul, CPU = arit,
-  pool = sawah, solusi = emas). Kode baru ada di `crates/miner-service/src/gaya.rs`.
+  pool = ladang, solusi = emas). Kode baru ada di `crates/miner-service/src/gaya.rs`.
 - Workflow CI dan rilis memakai nama binary `bapak`.
 
 Dokumentasi asli quantus-miner ada di bawah ini.
