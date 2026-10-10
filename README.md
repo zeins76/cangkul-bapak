@@ -7,7 +7,11 @@ dirilis dengan lisensi yang sama, Apache-2.0 (lihat `LICENSE`).
 ## Cara pakai
 
 ```bash
-# Menambang di ladang (pool)
+# Menambang di pool stratum (Kryptex, Suprnova, LuckyPool, ...)
+./bapak --coin quantus --cuda-gpu --cpu-workers 0 \
+  --ladang stratum+tcp://qtc.kryptex.network:7049 --wallet <ALAMAT_QTC>.rig1
+
+# Menambang ke node Quantus / pool QUIC sendiri
 ./bapak --coin quantus --ladang 103.10.20.30:9833 --wallet <ALAMAT_QTC> --tls-cert-sha256 <SIDIK_JARI_TLS>
 
 # Uji kekuatan cangkul (benchmark), GPU saja
@@ -29,6 +33,9 @@ melihat pesan log teknis asli.
 - Pesan log dan benchmark bergaya "bapak tani" (GPU = cangkul, CPU = arit,
   pool = ladang, solusi = emas). Kode baru ada di `crates/miner-service/src/gaya.rs`.
 - Workflow CI dan rilis memakai nama binary `bapak`.
+- Klien stratum baru (`crates/miner-service/src/stratum.rs`) untuk pool Quantus
+  yang memakai protokol login/job/submit (Kryptex, Suprnova, LuckyPool). Nonce
+  yang dicari GPU diawali extranonce dari pool. Hanya `stratum+tcp`, belum SSL.
 
 Dokumentasi asli quantus-miner ada di bawah ini.
 

@@ -22,7 +22,9 @@ enum Command {
         #[arg(long, env = "BAPAK_COIN", default_value = "quantus", value_parser = ["quantus"])]
         coin: String,
 
-        /// Alamat ladang (pool) atau node, contoh 103.10.20.30:9833.
+        /// Alamat ladang (pool) atau node.
+        /// Pool stratum: stratum+tcp://qtc.kryptex.network:7049.
+        /// Node Quantus (QUIC): 103.10.20.30:9833.
         /// Bisa ditulis --ladang, --pool, atau --node-addr.
         #[arg(
             long,
@@ -30,7 +32,7 @@ enum Command {
             env = "MINER_NODE_ADDR",
             default_value = "127.0.0.1:9833"
         )]
-        node_addr: std::net::SocketAddr,
+        node_addr: String,
 
         /// Alamat wallet QTC kamu, dipakai sebagai identitas di ladang (pool).
         /// Tidak bisa dipakai bersama --auth-token / --auth-token-file.
@@ -40,6 +42,10 @@ enum Command {
             conflicts_with_all = ["auth_token", "auth_token_file"]
         )]
         wallet: Option<String>,
+
+        /// Password pool stratum (biasanya x)
+        #[arg(short = 'p', long = "pass", env = "BAPAK_PASS", default_value = "x")]
+        pool_pass: String,
 
         /// Shared auth token from the node's `miner-auth-token` file
         /// (`<base-path>/chains/<chain>/miner-auth-token`). Prefer `--auth-token-file`.
@@ -164,7 +170,7 @@ enum Command {
 
 /// bapak: miner Quantus turunan quantus-miner (Apache-2.0).
 ///
-/// Contoh: bapak --coin quantus --ladang 103.10.20.30:9833 --wallet <ALAMAT_QTC> --tls-cert-sha256 <SIDIK_JARI>
+/// Contoh: bapak --coin quantus --ladang stratum+tcp://qtc.kryptex.network:7049 --wallet <ALAMAT_QTC>.rig1
 #[derive(Parser, Debug)]
 #[command(name = "bapak", author, version, about, long_about = None)]
 struct Args {
@@ -187,8 +193,8 @@ async fn main() {
     let Some(command) = args.command else {
         eprintln!("Error: perintah belum lengkap.");
         eprintln!(
-            "Contoh: bapak --coin quantus --ladang 103.10.20.30:9833 \
-             --wallet <ALAMAT_QTC> --tls-cert-sha256 <SIDIK_JARI_TLS>"
+            "Contoh: bapak --coin quantus --ladang stratum+tcp://qtc.kryptex.network:7049 \
+             --wallet <ALAMAT_QTC>.rig1"
         );
         eprintln!("Uji kekuatan cangkul: bapak benchmark --gpu-devices 1 --cpu-workers 0");
         std::process::exit(1);
@@ -199,6 +205,7 @@ async fn main() {
             coin: _,
             node_addr,
             wallet,
+            pool_pass,
             auth_token,
             auth_token_file,
             tls_cert_sha256,
@@ -217,31 +224,62 @@ async fn main() {
             init_logger(verbose);
             miner_service::gaya::set_log_normal(log_normal);
 
-            let auth_token = match wallet {
-                Some(w) if !w.trim().is_empty() => Ok(w.trim().to_string()),
-                Some(_) => Err("--wallet kosong".to_string()),
-                None => resolve_auth_token(auth_token, auth_token_file),
-            };
-            let auth_token = match auth_token {
-                Ok(token) => token,
+            // stratum+tcp://... means a stratum pool (Kryptex, Suprnova, ...);
+            // anything else is a Quantus node / QUIC pool address.
+            let stratum = match miner_service::stratum::StratumConfig::parse_url(
+                &node_addr,
+                wallet.as_deref().unwrap_or(""),
+                &pool_pass,
+            ) {
+                Ok(s) => s,
                 Err(e) => {
                     eprintln!("Error: {e}");
                     std::process::exit(1);
                 }
             };
-            let tls_cert_sha256 =
-                match resolve_tls_cert_sha256(tls_cert_sha256, tls_cert_sha256_file) {
-                    Ok(fp) => fp,
+
+            let (node_socket, auth_token, tls_cert_sha256) = if stratum.is_some() {
+                (
+                    std::net::SocketAddr::from(([0, 0, 0, 0], 0)),
+                    String::new(),
+                    String::new(),
+                )
+            } else {
+                let node_socket = match resolve_node_addr(&node_addr) {
+                    Ok(addr) => addr,
                     Err(e) => {
                         eprintln!("Error: {e}");
                         std::process::exit(1);
                     }
                 };
-            // Fail closed on permanent misconfig before metrics/workers start.
-            if let Err(e) = quic_transport::validate_auth_config(&auth_token, &tls_cert_sha256) {
-                eprintln!("Error: {e}");
-                std::process::exit(1);
-            }
+                let auth_token = match wallet {
+                    Some(w) if !w.trim().is_empty() => Ok(w.trim().to_string()),
+                    Some(_) => Err("--wallet kosong".to_string()),
+                    None => resolve_auth_token(auth_token, auth_token_file),
+                };
+                let auth_token = match auth_token {
+                    Ok(token) => token,
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
+                };
+                let tls_cert_sha256 =
+                    match resolve_tls_cert_sha256(tls_cert_sha256, tls_cert_sha256_file) {
+                        Ok(fp) => fp,
+                        Err(e) => {
+                            eprintln!("Error: {e}");
+                            std::process::exit(1);
+                        }
+                    };
+                // Fail closed on permanent misconfig before metrics/workers start.
+                if let Err(e) = quic_transport::validate_auth_config(&auth_token, &tls_cert_sha256)
+                {
+                    eprintln!("Error: {e}");
+                    std::process::exit(1);
+                }
+                (node_socket, auth_token, tls_cert_sha256)
+            };
 
             if miner_service::gaya::log_normal() {
                 log::info!("Starting external miner service...");
@@ -260,7 +298,8 @@ async fn main() {
             );
 
             let config = ServiceConfig {
-                node_addr,
+                stratum,
+                node_addr: node_socket,
                 auth_token,
                 tls_cert_sha256,
                 cpu_workers,
@@ -311,6 +350,15 @@ fn resolve_gpu_batch_size(explicit: Option<u32>, cuda_gpu: bool) -> u32 {
     } else {
         DEFAULT_GPU_BATCH_SIZE
     })
+}
+
+/// Resolve `host:port` (IP or hostname) to a socket address for QUIC.
+fn resolve_node_addr(addr: &str) -> Result<std::net::SocketAddr, String> {
+    use std::net::ToSocketAddrs;
+    addr.to_socket_addrs()
+        .map_err(|e| format!("alamat ladang/node tidak valid '{addr}': {e}"))?
+        .next()
+        .ok_or_else(|| format!("alamat ladang/node tidak ditemukan: {addr}"))
 }
 
 fn resolve_auth_token(

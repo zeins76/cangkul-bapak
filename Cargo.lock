@@ -1571,6 +1571,7 @@ dependencies = [
  "quantus-miner-api",
  "quic-transport",
  "quinn",
+ "serde_json",
  "tokio",
 ]
 

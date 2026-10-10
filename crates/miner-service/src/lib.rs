@@ -10,6 +10,7 @@
 
 pub mod gaya;
 pub mod quic;
+pub mod stratum;
 
 use crossbeam_channel::{bounded, Receiver, Sender};
 use engine_cpu::{EngineCandidate, EngineRange, JobIdCancelCheck, MinerEngine};
@@ -22,6 +23,10 @@ use std::thread;
 /// Service runtime configuration provided by the CLI/binary.
 #[derive(Clone, Debug)]
 pub struct ServiceConfig {
+    /// Stratum pool settings. When set, the miner talks to a stratum pool
+    /// (login/job/submit) instead of a node over QUIC, and `node_addr`,
+    /// `auth_token` and `tls_cert_sha256` are ignored.
+    pub stratum: Option<stratum::StratumConfig>,
     /// Address of the node to connect to (e.g., "127.0.0.1:9833").
     pub node_addr: std::net::SocketAddr,
     /// Shared secret that must match the node's miner auth token.
@@ -84,6 +89,17 @@ fn generate_random_nonce() -> U512 {
     U512::from_big_endian(&bytes)
 }
 
+/// Nonce range whose big-endian bytes start with `prefix` (the pool's
+/// extranonce), with a random starting point inside that range.
+fn nonce_range_with_prefix(prefix: &[u8]) -> (U512, U512) {
+    let mut start = [0u8; 64];
+    getrandom::getrandom(&mut start).expect("Failed to generate random bytes");
+    start[..prefix.len()].copy_from_slice(prefix);
+    let mut end = [0xFFu8; 64];
+    end[..prefix.len()].copy_from_slice(prefix);
+    (U512::from_big_endian(&start), U512::from_big_endian(&end))
+}
+
 /// Why the current job was stopped. Recorded by the pool so workers can log
 /// an accurate reason when they notice the job ID changed mid-search.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -134,6 +150,9 @@ pub struct MiningJob {
     pub ctx: pow_core::JobContext,
     /// Job ID to detect stale results after job transitions
     pub job_id: u64,
+    /// Leading big-endian nonce bytes required by a stratum pool (its
+    /// extranonce). `None` keeps the original fully random nonce.
+    pub nonce_prefix: Option<Vec<u8>>,
 }
 
 /// Persistent worker thread pool that keeps threads alive between jobs.
@@ -261,6 +280,19 @@ impl WorkerPool {
     ///
     /// Returns the new job ID, which can be used to filter stale results.
     pub fn start_job(&self, header_hash: [u8; 32], difficulty: U512) -> u64 {
+        self.start_job_with_prefix(header_hash, difficulty, None)
+    }
+
+    /// Like [`WorkerPool::start_job`], but every searched nonce starts with
+    /// `nonce_prefix` (big-endian). Used for stratum pools that hand out an
+    /// extranonce. Prefixes longer than 32 bytes are ignored.
+    pub fn start_job_with_prefix(
+        &self,
+        header_hash: [u8; 32],
+        difficulty: U512,
+        nonce_prefix: Option<Vec<u8>>,
+    ) -> u64 {
+        let nonce_prefix = nonce_prefix.filter(|p| !p.is_empty() && p.len() <= 32);
         // A new job means a new block arrived; record that so workers still
         // finishing the old job log the right reason.
         self.job_stop_reason
@@ -276,6 +308,7 @@ impl WorkerPool {
         let job = MiningJob {
             ctx,
             job_id: new_job_id,
+            nonce_prefix,
         };
 
         // Dispatch job to all workers using bounded channels (capacity 16).
@@ -432,9 +465,12 @@ fn worker_loop(
         let job_id = job.job_id;
         log::debug!("[WORKER {type_str}-{worker_id}] Received job {job_id}");
 
-        // Generate random starting nonce for this job
-        let start = generate_random_nonce();
-        let end = U512::MAX;
+        // Generate random starting nonce for this job (inside the pool's
+        // extranonce range when the job carries one)
+        let (start, end) = match job.nonce_prefix.as_deref() {
+            Some(prefix) => nonce_range_with_prefix(prefix),
+            None => (generate_random_nonce(), U512::MAX),
+        };
 
         log::debug!("[WORKER {type_str}-{worker_id}] Starting search for job {job_id}");
 
@@ -742,9 +778,23 @@ pub async fn run(config: ServiceConfig) -> anyhow::Result<()> {
     let node_addr = config.node_addr;
     if gaya::log_normal() {
         log::info!("⛏️  Mining service ready with {total_workers} total workers");
-        log::info!("🌐 Connecting to node at {node_addr}");
+        if config.stratum.is_none() {
+            log::info!("🌐 Connecting to node at {node_addr}");
+        }
     } else {
         log::info!("⛏️  Bapak siap kerja dengan {total_workers} alat");
+    }
+
+    // Stratum pool (Kryptex, Suprnova, LuckyPool, ...) instead of a node
+    if let Some(stratum_config) = config.stratum.clone() {
+        return stratum::connect_and_mine(
+            stratum_config,
+            cpu_engine,
+            gpu_engine,
+            cpu_workers,
+            gpu_devices,
+        )
+        .await;
     }
 
     // Connect to node and start mining
