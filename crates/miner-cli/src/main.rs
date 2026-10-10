@@ -453,8 +453,6 @@ async fn run_benchmark(
     allow_integrated: bool,
     cuda_gpu: bool,
 ) {
-    let effective_cpu_workers = cpu_workers.unwrap_or_else(num_cpus::get);
-
     let (gpu_engine, effective_gpu_devices) = if cuda_gpu {
         match miner_service::resolve_cuda_configuration(gpu_devices, gpu_batch_size, 0) {
             Ok((engine, count)) => (engine, count),
@@ -477,6 +475,15 @@ async fn run_benchmark(
             }
         }
     };
+
+    // Same default as mining: no CPU workers when a GPU is in use.
+    let effective_cpu_workers = cpu_workers.unwrap_or_else(|| {
+        if effective_gpu_devices > 0 {
+            0
+        } else {
+            num_cpus::get()
+        }
+    });
 
     let total_workers = effective_cpu_workers + effective_gpu_devices;
 

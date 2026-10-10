@@ -722,7 +722,18 @@ pub async fn run(config: ServiceConfig) -> anyhow::Result<()> {
     };
 
     // Resolve CPU workers
+    // bapak: with a GPU present, CPU workers default to 0 (the CPU adds
+    // almost no hashrate and can starve the GPU feeder). Without a GPU,
+    // fall back to half the CPUs. An explicit --cpu-workers always wins.
     let cpu_workers = config.cpu_workers.unwrap_or_else(|| {
+        if gpu_devices > 0 {
+            if gaya::log_normal() {
+                log::info!("GPU found, CPU workers disabled (use --cpu-workers N to enable)");
+            } else {
+                log::info!("🧑‍🌾 Ada cangkul, arit (CPU) disimpan dulu. Pakai --cpu-workers N kalau mau ikut kerja");
+            }
+            return 0;
+        }
         let default = (effective_cpus / 2).max(1);
         log::info!(
             "Auto-detected {} CPU workers (of {} available)",

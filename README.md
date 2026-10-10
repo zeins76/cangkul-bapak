@@ -9,7 +9,7 @@ dirilis dengan lisensi yang sama, Apache-2.0 (lihat `LICENSE`).
 Linux, GPU NVIDIA, menambang di Kryptex:
 
 ```bash
-wget -q https://github.com/zeins76/cangkul-bapak/releases/latest/download/bapak-linux-x86_64 -O bapak && chmod +x bapak && ./bapak --coin quantus --cuda-gpu --cpu-workers 0 --ladang stratum+tcp://qtc.kryptex.network:7049 --wallet ALAMAT_QTC.rig1
+wget -q https://github.com/zeins76/cangkul-bapak/releases/latest/download/bapak-linux-x86_64 -O bapak && chmod +x bapak && ./bapak --coin quantus --cuda-gpu --ladang stratum+tcp://qtc.kryptex.network:7049 --wallet ALAMAT_QTC.rig1
 ```
 
 Ganti `ALAMAT_QTC` dengan alamat wallet Quantus kamu. Rilis baru dibuat dengan
@@ -19,7 +19,7 @@ push tag `bapak-vX.Y.Z` (workflow `.github/workflows/rilis-bapak.yml`).
 
 ```bash
 # Menambang di pool stratum (Kryptex, Suprnova, LuckyPool, ...)
-./bapak --coin quantus --cuda-gpu --cpu-workers 0 \
+./bapak --coin quantus --cuda-gpu \
   --ladang stratum+tcp://qtc.kryptex.network:7049 --wallet <ALAMAT_QTC>.rig1
 
 # Menambang ke node Quantus / pool QUIC sendiri
@@ -44,6 +44,7 @@ melihat pesan log teknis asli.
 - Pesan log dan benchmark bergaya "bapak tani" (GPU = cangkul, CPU = arit,
   pool = ladang, solusi = emas). Kode baru ada di `crates/miner-service/src/gaya.rs`.
 - Workflow CI dan rilis memakai nama binary `bapak`.
+- Kalau ada GPU, CPU worker otomatis 0 (bisa diaktifkan dengan `--cpu-workers N`).
 - Klien stratum baru (`crates/miner-service/src/stratum.rs`) untuk pool Quantus
   yang memakai protokol login/job/submit (Kryptex, Suprnova, LuckyPool). Nonce
   yang dicari GPU diawali extranonce dari pool. Hanya `stratum+tcp`, belum SSL.
