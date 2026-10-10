@@ -1,0 +1,84 @@
+---
+name: Rilis bapak
+
+# Push tag bapak-vX.Y.Z (or run manually from the Actions tab) to build the
+# Linux binary and publish it as a GitHub Release. The latest release is then
+# downloadable without login:
+#   https://github.com/<owner>/<repo>/releases/latest/download/bapak-linux-x86_64
+on:
+  push:
+    tags:
+      - "bapak-v*"
+  workflow_dispatch:
+    inputs:
+      versi:
+        description: "Versi rilis, contoh 0.1.0"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-linux:
+    name: Build bapak (Linux x86_64)
+    # Ubuntu 22.04 (glibc 2.35) so the binary also runs on older rented
+    # instances and mining OS images.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: build
+        run: cargo build --release --locked -p miner-cli
+        timeout-minutes: 60
+      - name: prepare binary
+        run: |
+          cp target/release/bapak bapak-linux-x86_64
+          strip bapak-linux-x86_64
+          ./bapak-linux-x86_64 --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bapak-linux-x86_64
+          path: bapak-linux-x86_64
+
+  release:
+    name: Publish release
+    needs: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="bapak-v${{ inputs.versi }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          cd dist
+          chmod +x bapak-linux-x86_64
+          sha256sum bapak-linux-x86_64 > SHA256SUMS.txt
+          cat > notes.md <<EOF
+          Miner Quantus (QTC) turunan quantus-miner (Apache-2.0).
+
+          Unduh dan jalankan (Linux, NVIDIA):
+
+          \`\`\`bash
+          wget -q https://github.com/${GH_REPO}/releases/latest/download/bapak-linux-x86_64 -O bapak && chmod +x bapak && ./bapak --coin quantus --cuda-gpu --cpu-workers 0 --ladang stratum+tcp://qtc.kryptex.network:7049 --wallet ALAMAT_QTC.rig1
+          \`\`\`
+
+          Mode CUDA butuh driver NVIDIA dan libnvrtc dari CUDA toolkit.
+          EOF
+          gh release create "$TAG" \
+            --target "${{ github.sha }}" \
+            --title "bapak $TAG" \
+            --notes-file notes.md \
+            bapak-linux-x86_64 SHA256SUMS.txt

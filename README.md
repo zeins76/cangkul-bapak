@@ -4,6 +4,17 @@
 [Quantus-Network/quantus-miner](https://github.com/Quantus-Network/quantus-miner),
 dirilis dengan lisensi yang sama, Apache-2.0 (lihat `LICENSE`).
 
+## Unduh dan jalankan (satu baris)
+
+Linux, GPU NVIDIA, menambang di Kryptex:
+
+```bash
+wget -q https://github.com/zeins76/cangkul-bapak/releases/latest/download/bapak-linux-x86_64 -O bapak && chmod +x bapak && ./bapak --coin quantus --cuda-gpu --cpu-workers 0 --ladang stratum+tcp://qtc.kryptex.network:7049 --wallet ALAMAT_QTC.rig1
+```
+
+Ganti `ALAMAT_QTC` dengan alamat wallet Quantus kamu. Rilis baru dibuat dengan
+push tag `bapak-vX.Y.Z` (workflow `.github/workflows/rilis-bapak.yml`).
+
 ## Cara pakai
 
 ```bash
