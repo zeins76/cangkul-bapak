@@ -221,8 +221,8 @@ async fn main() {
             verbose,
             log_normal,
         } => {
-            init_logger(verbose);
             miner_service::gaya::set_log_normal(log_normal);
+            init_logger(verbose);
 
             // stratum+tcp://... means a stratum pool (Kryptex, Suprnova, ...);
             // anything else is a Quantus node / QUIC pool address.
@@ -328,8 +328,8 @@ async fn main() {
             verbose,
             log_normal,
         } => {
-            init_logger(verbose);
             miner_service::gaya::set_log_normal(log_normal);
+            init_logger(verbose);
             run_benchmark(
                 cpu_workers,
                 gpu_devices,
@@ -422,7 +422,26 @@ fn init_logger(verbose: bool) {
         };
         std::env::set_var("RUST_LOG", log_level);
     }
-    env_logger::init();
+    // Same layout as env_logger's default, but module names are shown in
+    // "bapak" style (miner_service -> layanan_bapak) unless --log-normal.
+    env_logger::Builder::from_default_env()
+        .format(|buf, record| {
+            use std::io::Write;
+            let target = if miner_service::gaya::log_normal() {
+                record.target().to_string()
+            } else {
+                miner_service::gaya::nama_target(record.target())
+            };
+            writeln!(
+                buf,
+                "[{} {:<5} {}] {}",
+                buf.timestamp(),
+                buf.default_styled_level(record.level()),
+                target,
+                record.args()
+            )
+        })
+        .init();
 }
 
 async fn run_benchmark(

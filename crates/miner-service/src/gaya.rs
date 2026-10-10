@@ -26,3 +26,46 @@ pub fn nama_alat(is_gpu: bool) -> &'static str {
         "Arit"
     }
 }
+
+/// Nama modul di log diganti nama gaya bapak, misalnya `miner_service`
+/// menjadi `layanan_bapak`. Bagian setelah `::` yang tidak dikenal dibiarkan.
+pub fn nama_target(target: &str) -> String {
+    const GANTI: [(&str, &str); 7] = [
+        ("miner_service::stratum", "layanan_bapak::ladang"),
+        ("miner_service::quic", "layanan_bapak::ladang"),
+        ("miner_service", "layanan_bapak"),
+        ("cuda_engine", "mesin_cangkul"),
+        ("gpu_engine", "mesin_cangkul"),
+        ("engine_cpu", "mesin_arit"),
+        ("miner_cli", "bapak"),
+    ];
+    for (asli, baru) in GANTI {
+        if let Some(sisa) = target.strip_prefix(asli) {
+            if sisa.is_empty() || sisa.starts_with("::") {
+                return format!("{baru}{sisa}");
+            }
+        }
+    }
+    target.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::nama_target;
+
+    #[test]
+    fn ganti_nama_target() {
+        assert_eq!(nama_target("miner_service"), "layanan_bapak");
+        assert_eq!(
+            nama_target("miner_service::stratum"),
+            "layanan_bapak::ladang"
+        );
+        assert_eq!(nama_target("miner_service::quic"), "layanan_bapak::ladang");
+        assert_eq!(nama_target("cuda_engine"), "mesin_cangkul");
+        assert_eq!(nama_target("gpu_engine"), "mesin_cangkul");
+        assert_eq!(nama_target("engine_cpu::fast"), "mesin_arit::fast");
+        assert_eq!(nama_target("miner_cli"), "bapak");
+        assert_eq!(nama_target("miner_service_extra"), "miner_service_extra");
+        assert_eq!(nama_target("wgpu_core"), "wgpu_core");
+    }
+}
