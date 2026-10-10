@@ -18,9 +18,28 @@ const DEFAULT_CPU_BATCH_SIZE: u64 = 10_000;
 enum Command {
     /// Run the mining service
     Serve {
-        /// Address of the node to connect to
-        #[arg(long, env = "MINER_NODE_ADDR", default_value = "127.0.0.1:9833")]
+        /// Coin yang ditambang (saat ini hanya quantus)
+        #[arg(long, env = "BAPAK_COIN", default_value = "quantus", value_parser = ["quantus"])]
+        coin: String,
+
+        /// Alamat sawah (pool) atau node, contoh 103.10.20.30:9833.
+        /// Bisa ditulis --sawah, --pool, atau --node-addr.
+        #[arg(
+            long,
+            visible_aliases = ["sawah", "pool"],
+            env = "MINER_NODE_ADDR",
+            default_value = "127.0.0.1:9833"
+        )]
         node_addr: std::net::SocketAddr,
+
+        /// Alamat wallet QTC kamu, dipakai sebagai identitas di sawah (pool).
+        /// Tidak bisa dipakai bersama --auth-token / --auth-token-file.
+        #[arg(
+            long,
+            env = "BAPAK_WALLET",
+            conflicts_with_all = ["auth_token", "auth_token_file"]
+        )]
+        wallet: Option<String>,
 
         /// Shared auth token from the node's `miner-auth-token` file
         /// (`<base-path>/chains/<chain>/miner-auth-token`). Prefer `--auth-token-file`.
@@ -96,6 +115,10 @@ enum Command {
         /// Enable verbose logging
         #[arg(short, long, env = "MINER_VERBOSE")]
         verbose: bool,
+
+        /// Pakai pesan log teknis asli (bukan gaya bapak)
+        #[arg(long = "log-normal", env = "BAPAK_LOG_NORMAL")]
+        log_normal: bool,
     },
 
     /// Run a quick benchmark of the mining engines
@@ -132,12 +155,18 @@ enum Command {
         /// Enable verbose logging
         #[arg(short, long, env = "MINER_VERBOSE")]
         verbose: bool,
+
+        /// Pakai pesan log teknis asli (bukan gaya bapak)
+        #[arg(long = "log-normal", env = "BAPAK_LOG_NORMAL")]
+        log_normal: bool,
     },
 }
 
-/// Quantus External Miner CLI
+/// bapak: miner Quantus turunan quantus-miner (Apache-2.0).
+///
+/// Contoh: bapak --coin quantus --sawah 103.10.20.30:9833 --wallet <ALAMAT_QTC> --tls-cert-sha256 <SIDIK_JARI>
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(name = "bapak", author, version, about, long_about = None)]
 struct Args {
     #[command(subcommand)]
     command: Option<Command>,
@@ -145,21 +174,31 @@ struct Args {
 
 #[tokio::main]
 async fn main() {
-    let args = Args::parse();
+    // `bapak --coin quantus --sawah ...` tanpa subcommand berarti `bapak serve ...`.
+    let mut argv: Vec<String> = std::env::args().collect();
+    if argv.len() > 1
+        && argv[1].starts_with('-')
+        && !matches!(argv[1].as_str(), "-h" | "--help" | "-V" | "--version")
+    {
+        argv.insert(1, "serve".to_string());
+    }
+    let args = Args::parse_from(argv);
 
     let Some(command) = args.command else {
-        eprintln!("Error: No command provided. Use 'serve' to start mining (defaults to local node at 127.0.0.1:9833).");
+        eprintln!("Error: perintah belum lengkap.");
         eprintln!(
-            "Example: quantus-miner serve --node-addr 127.0.0.1:9833 \
-             --auth-token-file /path/to/miner-auth-token \
-             --tls-cert-sha256-file /path/to/miner-tls-cert-sha256"
+            "Contoh: bapak --coin quantus --sawah 103.10.20.30:9833 \
+             --wallet <ALAMAT_QTC> --tls-cert-sha256 <SIDIK_JARI_TLS>"
         );
+        eprintln!("Uji kekuatan cangkul: bapak benchmark --gpu-devices 1 --cpu-workers 0");
         std::process::exit(1);
     };
 
     match command {
         Command::Serve {
+            coin: _,
             node_addr,
+            wallet,
             auth_token,
             auth_token_file,
             tls_cert_sha256,
@@ -173,10 +212,17 @@ async fn main() {
             allow_integrated,
             cuda_gpu,
             verbose,
+            log_normal,
         } => {
             init_logger(verbose);
+            miner_service::gaya::set_log_normal(log_normal);
 
-            let auth_token = match resolve_auth_token(auth_token, auth_token_file) {
+            let auth_token = match wallet {
+                Some(w) if !w.trim().is_empty() => Ok(w.trim().to_string()),
+                Some(_) => Err("--wallet kosong".to_string()),
+                None => resolve_auth_token(auth_token, auth_token_file),
+            };
+            let auth_token = match auth_token {
                 Ok(token) => token,
                 Err(e) => {
                     eprintln!("Error: {e}");
@@ -197,7 +243,11 @@ async fn main() {
                 std::process::exit(1);
             }
 
-            log::info!("Starting external miner service...");
+            if miner_service::gaya::log_normal() {
+                log::info!("Starting external miner service...");
+            } else {
+                log::info!("🧑‍🌾 Bapak bangun, siap-siap ke sawah...");
+            }
 
             // Start metrics HTTP server
             if let Err(e) = metrics::start_http_exporter(metrics_port).await {
@@ -237,8 +287,10 @@ async fn main() {
             allow_integrated,
             cuda_gpu,
             verbose,
+            log_normal,
         } => {
             init_logger(verbose);
+            miner_service::gaya::set_log_normal(log_normal);
             run_benchmark(
                 cpu_workers,
                 gpu_devices,
@@ -270,8 +322,8 @@ fn resolve_auth_token(
         auth_token_file,
         "--auth-token",
         "--auth-token-file",
-        "miner auth token required: pass --auth-token-file <PATH> to the node's \
-         miner-auth-token file (or --auth-token <TOKEN>)",
+        "isi --wallet <ALAMAT_QTC> untuk menambang di sawah (pool), atau \
+         --auth-token-file <PATH> ke file miner-auth-token node untuk solo",
     )
 }
 
@@ -361,8 +413,14 @@ async fn run_benchmark(
 
     let total_workers = effective_cpu_workers + effective_gpu_devices;
 
-    println!("🚀 Quantus Miner Benchmark");
-    println!("==========================");
+    let bapak = !miner_service::gaya::log_normal();
+    if bapak {
+        println!("🧑‍🌾 Uji Kekuatan Cangkul Bapak");
+        println!("==============================");
+    } else {
+        println!("🚀 Quantus Miner Benchmark");
+        println!("==========================");
+    }
     println!(
         "CPU Workers: {} (Available: {})",
         effective_cpu_workers,
@@ -401,7 +459,11 @@ async fn run_benchmark(
     let ref_engine = cpu_engine.as_ref().or(gpu_engine.as_ref()).unwrap();
     let ctx = ref_engine.prepare_context(header, difficulty);
 
-    println!("⛏️  Starting benchmark...");
+    if bapak {
+        println!("⛏️  Bapak mulai mencangkul...");
+    } else {
+        println!("⛏️  Starting benchmark...");
+    }
 
     // Spawn worker threads
     let mut handles = Vec::new();
@@ -489,7 +551,15 @@ async fn run_benchmark(
             let elapsed = benchmark_start.elapsed().as_secs_f64();
             if current > 0 {
                 let rate = current as f64 / elapsed;
-                println!("⏱️  {:.1}s - {} H/s", elapsed, format_hash_rate(rate));
+                if bapak {
+                    println!(
+                        "⏱️  {:.1}s - kekuatan cangkul {} H/s",
+                        elapsed,
+                        format_hash_rate(rate)
+                    );
+                } else {
+                    println!("⏱️  {:.1}s - {} H/s", elapsed, format_hash_rate(rate));
+                }
             }
             last_update = Instant::now();
         }
@@ -505,18 +575,33 @@ async fn run_benchmark(
     let avg_rate = final_hashes as f64 / total_elapsed.as_secs_f64();
 
     println!();
-    println!("📊 Benchmark Results");
+    if bapak {
+        println!("📊 Hasil Uji Cangkul");
+    } else {
+        println!("📊 Benchmark Results");
+    }
     println!("===================");
     println!("Total time: {:.2}s", total_elapsed.as_secs_f64());
     println!("Total hashes: {}", final_hashes);
-    println!("Average rate: {} H/s", format_hash_rate(avg_rate));
+    if bapak {
+        println!(
+            "Kekuatan cangkul rata-rata: {} H/s",
+            format_hash_rate(avg_rate)
+        );
+    } else {
+        println!("Average rate: {} H/s", format_hash_rate(avg_rate));
+    }
 
     if total_workers > 1 {
         let per_worker = avg_rate / total_workers as f64;
         println!("Per-worker: {} H/s", format_hash_rate(per_worker));
     }
 
-    println!("✅ Benchmark completed!");
+    if bapak {
+        println!("✅ Bapak selesai uji cangkul!");
+    } else {
+        println!("✅ Benchmark completed!");
+    }
 }
 
 fn format_hash_rate(rate: f64) -> String {

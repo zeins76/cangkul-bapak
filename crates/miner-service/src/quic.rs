@@ -15,7 +15,7 @@ use quantus_miner_api::{
     read_message, write_message, ApiResponseStatus, MinerMessage, MiningResult,
 };
 
-use crate::{EngineType, JobStopReason, WorkerPool};
+use crate::{gaya, EngineType, JobStopReason, WorkerPool};
 use pow_core::format_hashrate;
 
 /// Connect to a node and start mining.
@@ -40,11 +40,19 @@ pub async fn connect_and_mine(
     const MAX_RECONNECT_DELAY: Duration = Duration::from_secs(30);
 
     loop {
-        log::info!("⛏️ Connecting to node at {}...", node_addr);
+        if gaya::log_normal() {
+            log::info!("⛏️ Connecting to node at {}...", node_addr);
+        } else {
+            log::info!("🌾 Bapak berangkat ke sawah {}...", node_addr);
+        }
 
         match establish_connection(node_addr, auth_token, tls_cert_sha256).await {
             Ok((connection, send, recv)) => {
-                log::info!("⛏️ Connected to node at {}", node_addr);
+                if gaya::log_normal() {
+                    log::info!("⛏️ Connected to node at {}", node_addr);
+                } else {
+                    log::info!("🌾 Bapak sampai di sawah {}", node_addr);
+                }
 
                 let mut authenticated = false;
                 if let Err(e) =
@@ -59,7 +67,11 @@ pub async fn connect_and_mine(
                         log::error!("⛏️ Permanent connection error (not retrying): {e}");
                         return Err(e);
                     }
-                    log::info!("⛏️ Connection lost: {}", e);
+                    if gaya::log_normal() {
+                        log::info!("⛏️ Connection lost: {}", e);
+                    } else {
+                        log::info!("⚠️ Jalan ke sawah putus: {}", e);
+                    }
                 }
                 // Only clear backoff after the node accepted auth (first NewJob).
                 // connect() already treats explicit "auth failed" as permanent;
@@ -75,11 +87,22 @@ pub async fn connect_and_mine(
                     log::error!("⛏️ Permanent connection error (not retrying): {e}");
                     return Err(e);
                 }
-                log::warn!("⛏️ Failed to connect to node: {}", e);
+                if gaya::log_normal() {
+                    log::warn!("⛏️ Failed to connect to node: {}", e);
+                } else {
+                    log::warn!("⚠️ Bapak gagal sampai ke sawah: {}", e);
+                }
             }
         }
 
-        log::info!("⛏️ Reconnecting in {:?}...", reconnect_delay);
+        if gaya::log_normal() {
+            log::info!("⛏️ Reconnecting in {:?}...", reconnect_delay);
+        } else {
+            log::info!(
+                "⏳ Bapak coba berangkat lagi {} detik lagi...",
+                reconnect_delay.as_secs()
+            );
+        }
         tokio::time::sleep(reconnect_delay).await;
         reconnect_delay = (reconnect_delay * 2).min(MAX_RECONNECT_DELAY);
     }
@@ -92,10 +115,12 @@ async fn establish_connection(
     tls_cert_sha256: &str,
 ) -> anyhow::Result<(quinn::Connection, quinn::SendStream, quinn::RecvStream)> {
     let result = quic_transport::connect(addr, auth_token, tls_cert_sha256).await?;
-    log::info!(
-        "⛏️ QUIC connection and bidirectional stream established to {}",
-        addr
-    );
+    if gaya::log_normal() {
+        log::info!(
+            "⛏️ QUIC connection and bidirectional stream established to {}",
+            addr
+        );
+    }
     Ok(result)
 }
 
@@ -146,7 +171,11 @@ async fn handle_connection(
     let mut gpu_hashes: u64 = 0;
     let mut solution_submitted_for_current_job = false;
 
-    log::info!("⛏️ Waiting for mining jobs from node...");
+    if gaya::log_normal() {
+        log::info!("⛏️ Waiting for mining jobs from node...");
+    } else {
+        log::info!("⏳ Bapak nunggu job dari sawah...");
+    }
 
     loop {
         // Poll for worker results (non-blocking via spawn_blocking)
@@ -194,10 +223,17 @@ async fn handle_connection(
                             .map(|t| t.elapsed().as_secs_f64())
                             .unwrap_or(0.0);
 
-                        log::info!(
-                            "✅ Job {job_id} solved: {total_hashes} hashes in {elapsed:.2}s ({}) - submitting solution to node",
-                            format_hashrate(total_hashes as f64 / elapsed.max(0.001))
-                        );
+                        if gaya::log_normal() {
+                            log::info!(
+                                "✅ Job {job_id} solved: {total_hashes} hashes in {elapsed:.2}s ({}) - submitting solution to node",
+                                format_hashrate(total_hashes as f64 / elapsed.max(0.001))
+                            );
+                        } else {
+                            log::info!(
+                                "💰 Bapak nemu emas di job {job_id}! {total_hashes} cangkulan dalam {elapsed:.2}s, kekuatan cangkul {}. Emas dikirim ke sawah",
+                                format_hashrate(total_hashes as f64 / elapsed.max(0.001))
+                            );
+                        }
 
                         // Mark as sent BEFORE sending to prevent duplicates
                         solution_submitted_for_current_job = true;
@@ -240,11 +276,15 @@ async fn handle_connection(
                 match msg_result {
                     Ok(MinerMessage::NewJob(request)) => {
                         *authenticated = true;
-                        log::info!(
-                            "🧱 New block to mine: job {} (header 0x{})",
-                            request.job_id,
-                            request.mining_hash
-                        );
+                        if gaya::log_normal() {
+                            log::info!(
+                                "🧱 New block to mine: job {} (header 0x{})",
+                                request.job_id,
+                                request.mining_hash
+                            );
+                        } else {
+                            log::info!("📋 Bapak nerima job {}", request.job_id);
+                        }
 
                         // Parse header hash
                         let header_hash: [u8; 32] = match hex::decode(&request.mining_hash) {
@@ -311,6 +351,9 @@ async fn handle_connection(
                         solution_submitted_for_current_job = false;
 
                         log::debug!("Starting job {}", request.job_id);
+                        if !gaya::log_normal() {
+                            log::info!("⛏️ Bapak mulai mencangkul job {}", request.job_id);
+                        }
                         metrics::set_active_jobs(1);
 
                         // start_job returns the internal job ID used to detect stale results

@@ -8,6 +8,7 @@
 #![deny(rust_2018_idioms)]
 #![forbid(unsafe_code)]
 
+pub mod gaya;
 pub mod quic;
 
 use crossbeam_channel::{bounded, Receiver, Sender};
@@ -363,11 +364,20 @@ fn log_worker_completion(
     } else {
         0.0
     };
-    log::info!(
-        "{type_str} worker {worker_id} {outcome}: {hash_count} hashes in {:.2}s ({})",
-        elapsed.as_secs_f64(),
-        format_hashrate(hash_rate)
-    );
+    if gaya::log_normal() {
+        log::info!(
+            "{type_str} worker {worker_id} {outcome}: {hash_count} hashes in {:.2}s ({})",
+            elapsed.as_secs_f64(),
+            format_hashrate(hash_rate)
+        );
+    } else {
+        log::info!(
+            "⛏️ {} {worker_id} istirahat: {hash_count} cangkulan dalam {:.2}s, kekuatan cangkul {}",
+            gaya::nama_alat(type_str == "GPU"),
+            elapsed.as_secs_f64(),
+            format_hashrate(hash_rate)
+        );
+    }
 }
 
 /// Main loop for a persistent worker thread.
@@ -385,7 +395,14 @@ fn worker_loop(
         EngineType::Gpu => "GPU",
     };
 
-    log::info!("{type_str} worker {worker_id} started (persistent)");
+    if gaya::log_normal() {
+        log::info!("{type_str} worker {worker_id} started (persistent)");
+    } else {
+        log::info!(
+            "🧑‍🌾 {} {worker_id} siap dipakai",
+            gaya::nama_alat(type_str == "GPU")
+        );
+    }
 
     // Main job processing loop
     loop {
@@ -481,11 +498,19 @@ fn worker_loop(
                 hash_count,
                 ..
             } => {
-                log::info!(
-                    "🎯 {type_str} worker {worker_id} found solution! Nonce: {}, Hash: {} (job {job_id})",
-                    format_u512(nonce),
-                    format_u512(hash),
-                );
+                if gaya::log_normal() {
+                    log::info!(
+                        "🎯 {type_str} worker {worker_id} found solution! Nonce: {}, Hash: {} (job {job_id})",
+                        format_u512(nonce),
+                        format_u512(hash),
+                    );
+                } else {
+                    log::info!(
+                        "✨ {} {worker_id} kena emas di job {job_id}! (nonce {})",
+                        gaya::nama_alat(type_str == "GPU"),
+                        format_u512(nonce),
+                    );
+                }
                 (Some(MiningCandidate { nonce, work, hash }), hash_count)
             }
             engine_cpu::EngineStatus::Exhausted { hash_count } => {
@@ -576,7 +601,11 @@ pub fn resolve_cuda_configuration(
             anyhow::bail!("No CUDA devices found");
         }
         None => {
-            log::info!("Auto-detected {available} CUDA device(s)");
+            if gaya::log_normal() {
+                log::info!("Auto-detected {available} CUDA device(s)");
+            } else {
+                log::info!("🧑‍🌾 Bapak nemu {available} cangkul NVIDIA (mode CUDA)");
+            }
             available
         }
     };
@@ -624,7 +653,11 @@ pub fn resolve_gpu_configuration(
             return Ok((None, 0));
         }
         None => {
-            log::info!("Auto-detected {available} GPU device(s)");
+            if gaya::log_normal() {
+                log::info!("Auto-detected {available} GPU device(s)");
+            } else {
+                log::info!("🧑‍🌾 Bapak nemu {available} cangkul (GPU)");
+            }
             available
         }
     };
@@ -678,11 +711,17 @@ pub async fn run(config: ServiceConfig) -> anyhow::Result<()> {
     };
 
     // Log configuration
-    log::info!(
-        "🚀 Mining configuration: {} CPU workers, {} GPU devices",
-        cpu_workers,
-        gpu_devices
-    );
+    if gaya::log_normal() {
+        log::info!(
+            "🚀 Mining configuration: {} CPU workers, {} GPU devices",
+            cpu_workers,
+            gpu_devices
+        );
+    } else {
+        log::info!(
+            "🧑‍🌾 Bapak siap berangkat: {gpu_devices} cangkul (GPU), {cpu_workers} arit (CPU)"
+        );
+    }
 
     if let Some(ref engine) = cpu_engine {
         let name = engine.name();
@@ -700,11 +739,15 @@ pub async fn run(config: ServiceConfig) -> anyhow::Result<()> {
     }
 
     let total_workers = cpu_workers + gpu_devices;
-    log::info!("⛏️  Mining service ready with {total_workers} total workers");
+    let node_addr = config.node_addr;
+    if gaya::log_normal() {
+        log::info!("⛏️  Mining service ready with {total_workers} total workers");
+        log::info!("🌐 Connecting to node at {node_addr}");
+    } else {
+        log::info!("⛏️  Bapak siap kerja dengan {total_workers} alat");
+    }
 
     // Connect to node and start mining
-    let node_addr = config.node_addr;
-    log::info!("🌐 Connecting to node at {node_addr}");
     quic::connect_and_mine(
         config.node_addr,
         &config.auth_token,

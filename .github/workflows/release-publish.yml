@@ -69,23 +69,23 @@ jobs:
           # Linux builds
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            binary_name: quantus-miner
-            asset_name: quantus-miner-linux-x86_64
+            binary_name: bapak
+            asset_name: bapak-linux-x86_64
           # Windows builds
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            binary_name: quantus-miner.exe
-            asset_name: quantus-miner-windows-x86_64.exe
+            binary_name: bapak.exe
+            asset_name: bapak-windows-x86_64.exe
           # macOS builds (Intel)
           - os: macos-15-intel
             target: x86_64-apple-darwin
-            binary_name: quantus-miner
-            asset_name: quantus-miner-macos-x86_64
+            binary_name: bapak
+            asset_name: bapak-macos-x86_64
           # macOS builds (Apple Silicon)
           - os: macos-latest
             target: aarch64-apple-darwin
-            binary_name: quantus-miner
-            asset_name: quantus-miner-macos-aarch64
+            binary_name: bapak
+            asset_name: bapak-macos-aarch64
 
     steps:
       - uses: actions/checkout@v4
@@ -154,4 +154,4 @@ jobs:
             --title "Release $TAG" \
             --generate-notes \
             $DRAFT_FLAG \
-            artifacts/*/quantus-miner-*
+            artifacts/*/bapak-*
