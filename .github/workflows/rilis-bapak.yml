@@ -39,10 +39,17 @@ jobs:
           cp target/release/bapak bapak-linux-x86_64
           strip bapak-linux-x86_64
           ./bapak-linux-x86_64 --version
+          # Tarball berisi binary bernama `bapak` dengan execute bit menyala.
+          # tar menyimpan izin, jadi setelah `tar xzf` tidak perlu chmod.
+          cp bapak-linux-x86_64 bapak
+          chmod +x bapak
+          tar czf bapak-linux-x86_64.tar.gz bapak
       - uses: actions/upload-artifact@v4
         with:
-          name: bapak-linux-x86_64
-          path: bapak-linux-x86_64
+          name: bapak-dist
+          path: |
+            bapak-linux-x86_64
+            bapak-linux-x86_64.tar.gz
 
   release:
     name: Publish release
@@ -65,11 +72,17 @@ jobs:
           fi
           cd dist
           chmod +x bapak-linux-x86_64
-          sha256sum bapak-linux-x86_64 > SHA256SUMS.txt
+          sha256sum bapak-linux-x86_64 bapak-linux-x86_64.tar.gz > SHA256SUMS.txt
           cat > notes.md <<EOF
           Miner Quantus (QTC) turunan quantus-miner (Apache-2.0).
 
-          Unduh dan jalankan (Linux, NVIDIA):
+          Cara 1 — tarball, tanpa chmod (seperti miner lain):
+
+          \`\`\`bash
+          wget -q https://github.com/${GH_REPO}/releases/latest/download/bapak-linux-x86_64.tar.gz -O bapak.tar.gz && tar xzf bapak.tar.gz && ./bapak --coin quantus --cuda-gpu --ladang stratum+tcp://qtc.kryptex.network:7049 --wallet ALAMAT_QTC.rig1
+          \`\`\`
+
+          Cara 2 — binary langsung (perlu chmod):
 
           \`\`\`bash
           wget -q https://github.com/${GH_REPO}/releases/latest/download/bapak-linux-x86_64 -O bapak && chmod +x bapak && ./bapak --coin quantus --cuda-gpu --ladang stratum+tcp://qtc.kryptex.network:7049 --wallet ALAMAT_QTC.rig1
@@ -81,4 +94,4 @@ jobs:
             --target "${{ github.sha }}" \
             --title "bapak $TAG" \
             --notes-file notes.md \
-            bapak-linux-x86_64 SHA256SUMS.txt
+            bapak-linux-x86_64 bapak-linux-x86_64.tar.gz SHA256SUMS.txt

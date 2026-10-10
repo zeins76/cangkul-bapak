@@ -6,7 +6,15 @@ dirilis dengan lisensi yang sama, Apache-2.0 (lihat `LICENSE`).
 
 ## Unduh dan jalankan (satu baris)
 
-Linux, GPU NVIDIA, menambang di Kryptex:
+Linux, GPU NVIDIA, menambang di Kryptex.
+
+Tarball (tanpa chmod, seperti miner lain — tar menyimpan izin eksekusi):
+
+```bash
+wget -q https://github.com/zeins76/cangkul-bapak/releases/latest/download/bapak-linux-x86_64.tar.gz -O bapak.tar.gz && tar xzf bapak.tar.gz && ./bapak --coin quantus --cuda-gpu --ladang stratum+tcp://qtc.kryptex.network:7049 --wallet ALAMAT_QTC.rig1
+```
+
+Atau binary langsung (perlu chmod):
 
 ```bash
 wget -q https://github.com/zeins76/cangkul-bapak/releases/latest/download/bapak-linux-x86_64 -O bapak && chmod +x bapak && ./bapak --coin quantus --cuda-gpu --ladang stratum+tcp://qtc.kryptex.network:7049 --wallet ALAMAT_QTC.rig1
