@@ -703,9 +703,6 @@ pub fn resolve_gpu_configuration(
 
 /// Start the miner service with the given configuration.
 pub async fn run(config: ServiceConfig) -> anyhow::Result<()> {
-    // Detect effective CPU count
-    let effective_cpus = num_cpus::get().max(1);
-
     let (gpu_engine, gpu_devices) = if config.cuda_gpu {
         resolve_cuda_configuration(
             config.gpu_devices,
@@ -722,30 +719,22 @@ pub async fn run(config: ServiceConfig) -> anyhow::Result<()> {
     };
 
     // Resolve CPU workers
-    // bapak: with a GPU present, CPU workers default to 0 (the CPU adds
-    // almost no hashrate and can starve the GPU feeder). Without a GPU,
-    // fall back to half the CPUs. An explicit --cpu-workers always wins.
-    let cpu_workers = config.cpu_workers.unwrap_or_else(|| {
-        if gpu_devices > 0 {
-            if gaya::log_normal() {
-                log::info!("GPU found, CPU workers disabled (use --cpu-workers N to enable)");
-            } else {
-                log::info!("🧑‍🌾 Ada cangkul, arit (CPU) disimpan dulu. Pakai --cpu-workers N kalau mau ikut kerja");
-            }
-            return 0;
-        }
-        let default = (effective_cpus / 2).max(1);
-        log::info!(
-            "Auto-detected {} CPU workers (of {} available)",
-            default,
-            effective_cpus
-        );
-        default
-    });
+    // bapak mines with the GPU only: CPU workers are off unless the user
+    // explicitly passes --cpu-workers N (kept for CI and testing).
+    let cpu_workers = config.cpu_workers.unwrap_or(0);
 
     // Validate: must have at least one worker
     if cpu_workers == 0 && gpu_devices == 0 {
-        anyhow::bail!("No workers configured. Specify --cpu-workers > 0 or --gpu-devices > 0.");
+        if gaya::log_normal() {
+            anyhow::bail!(
+                "No GPU found. bapak mines with the GPU only; check the NVIDIA driver \
+                 and try --cuda-gpu."
+            );
+        }
+        anyhow::bail!(
+            "Bapak tidak menemukan cangkul (GPU). bapak hanya menambang pakai GPU; \
+             cek driver NVIDIA dan coba tambahkan --cuda-gpu."
+        );
     }
 
     // Create CPU engine

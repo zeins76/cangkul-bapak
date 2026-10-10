@@ -476,14 +476,8 @@ async fn run_benchmark(
         }
     };
 
-    // Same default as mining: no CPU workers when a GPU is in use.
-    let effective_cpu_workers = cpu_workers.unwrap_or_else(|| {
-        if effective_gpu_devices > 0 {
-            0
-        } else {
-            num_cpus::get()
-        }
-    });
+    // Same default as mining: GPU only, CPU workers only when asked for.
+    let effective_cpu_workers = cpu_workers.unwrap_or(0);
 
     let total_workers = effective_cpu_workers + effective_gpu_devices;
 

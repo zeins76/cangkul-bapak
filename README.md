@@ -44,7 +44,7 @@ melihat pesan log teknis asli.
 - Pesan log dan benchmark bergaya "bapak tani" (GPU = cangkul, CPU = arit,
   pool = ladang, solusi = emas). Kode baru ada di `crates/miner-service/src/gaya.rs`.
 - Workflow CI dan rilis memakai nama binary `bapak`.
-- Kalau ada GPU, CPU worker otomatis 0 (bisa diaktifkan dengan `--cpu-workers N`).
+- Menambang pakai GPU saja: CPU worker 0 secara default (`--cpu-workers N` hanya untuk tes).
 - Klien stratum baru (`crates/miner-service/src/stratum.rs`) untuk pool Quantus
   yang memakai protokol login/job/submit (Kryptex, Suprnova, LuckyPool). Nonce
   yang dicari GPU diawali extranonce dari pool. Hanya `stratum+tcp`, belum SSL.
